@@ -1,0 +1,95 @@
+{
+  "nodes": [
+    { "id": "auth.login",         "label": "login()",           "community": 0, "weight": 0.9, "source_file": "auth/login.ts",        "source_location": "L12" },
+    { "id": "auth.validate",      "label": "validateToken()",   "community": 0, "weight": 0.7, "source_file": "auth/validate.ts",     "source_location": "L34" },
+    { "id": "auth.session",       "label": "SessionManager",    "community": 0, "weight": 0.8, "source_file": "auth/session.ts",      "source_location": "L5"  },
+    { "id": "auth.hash",          "label": "hashPassword()",    "community": 0, "weight": 0.5, "source_file": "auth/crypto.ts",       "source_location": "L88" },
+
+    { "id": "db.query",           "label": "QueryBuilder",      "community": 1, "weight": 1.0, "source_file": "db/query.ts",          "source_location": "L7"  },
+    { "id": "db.connection",      "label": "DBConnection",      "community": 1, "weight": 0.9, "source_file": "db/connection.ts",     "source_location": "L3"  },
+    { "id": "db.model",           "label": "BaseModel",         "community": 1, "weight": 0.8, "source_file": "db/model.ts",          "source_location": "L14" },
+
+    { "id": "api.router",         "label": "Router",            "community": 2, "weight": 1.0, "source_file": "api/router.ts",        "source_location": "L1"  },
+    { "id": "api.handler",        "label": "RequestHandler",    "community": 2, "weight": 0.8, "source_file": "api/handler.ts",       "source_location": "L9"  },
+    { "id": "api.response",       "label": "ResponseBuilder",   "community": 2, "weight": 0.7, "source_file": "api/response.ts",      "source_location": "L18" },
+    { "id": "api.logger",         "label": "requestLogger()",   "community": 2, "weight": 0.4, "source_file": "api/logger.ts",        "source_location": "L67" },
+
+    { "id": "user.service",       "label": "UserService",       "community": 3, "weight": 0.9, "source_file": "user/service.ts",      "source_location": "L10" },
+    { "id": "user.profile",       "label": "getProfile()",      "community": 3, "weight": 0.7, "source_file": "user/profile.ts",      "source_location": "L45" },
+    { "id": "user.settings",      "label": "updateSettings()",  "community": 3, "weight": 0.6, "source_file": "user/settings.ts",     "source_location": "L82" },
+
+    { "id": "pay.checkout",       "label": "checkout()",        "community": 4, "weight": 1.0, "source_file": "pay/checkout.ts",      "source_location": "L15" },
+    { "id": "pay.stripe",         "label": "StripeClient",      "community": 4, "weight": 0.9, "source_file": "pay/stripe.ts",        "source_location": "L4"  },
+    { "id": "pay.invoice",        "label": "createInvoice()",   "community": 4, "weight": 0.7, "source_file": "pay/invoice.ts",       "source_location": "L50" },
+    { "id": "pay.webhook",        "label": "handleWebhook()",   "community": 4, "weight": 0.8, "source_file": "pay/webhook.ts",       "source_location": "L22" },
+    { "id": "pay.ledger",         "label": "auditLedger()",     "community": 4, "weight": 0.5, "source_file": "pay/ledger.ts",        "source_location": "L110"},
+
+    { "id": "notif.email",        "label": "sendEmail()",       "community": 5, "weight": 0.8, "source_file": "notif/email.ts",       "source_location": "L14" },
+    { "id": "notif.sms",          "label": "sendSMS()",         "community": 5, "weight": 0.6, "source_file": "notif/sms.ts",         "source_location": "L30" },
+    { "id": "notif.template",     "label": "compileTemplate()", "community": 5, "weight": 0.5, "source_file": "notif/template.ts",    "source_location": "L5"  },
+
+    { "id": "cache.redis",        "label": "RedisClient",       "community": 6, "weight": 0.9, "source_file": "cache/redis.ts",       "source_location": "L2"  },
+    { "id": "cache.wrapper",      "label": "withCache()",       "community": 6, "weight": 0.8, "source_file": "cache/wrapper.ts",     "source_location": "L41" },
+
+    { "id": "analytics.track",    "label": "trackEvent()",      "community": 7, "weight": 0.7, "source_file": "analytics/track.ts",   "source_location": "L12" },
+    { "id": "analytics.metric",   "label": "pushMetric()",      "community": 7, "weight": 0.6, "source_file": "analytics/metric.ts",  "source_location": "L28" },
+    { "id": "analytics.batch",    "label": "BatchProcessor",    "community": 7, "weight": 0.8, "source_file": "analytics/batch.ts",   "source_location": "L75" },
+
+    { "id": "search.index",       "label": "indexDocument()",   "community": 8, "weight": 0.8, "source_file": "search/index.ts",      "source_location": "L19" },
+    { "id": "search.query",       "label": "searchQuery()",     "community": 8, "weight": 0.9, "source_file": "search/query.ts",      "source_location": "L33" },
+    { "id": "search.config",      "label": "ElasticClient",     "community": 8, "weight": 0.7, "source_file": "search/config.ts",     "source_location": "L8"  },
+
+    { "id": "storage.s3",         "label": "S3Uploader",        "community": 9, "weight": 0.9, "source_file": "storage/s3.ts",        "source_location": "L5"  },
+    { "id": "storage.cdn",        "label": "getSignedUrl()",    "community": 9, "weight": 0.7, "source_file": "storage/cdn.ts",       "source_location": "L48" },
+
+    { "id": "queue.worker",       "label": "JobWorker",         "community": 10, "weight": 0.9, "source_file": "queue/worker.ts",     "source_location": "L11" },
+    { "id": "queue.producer",     "label": "enqueueJob()",      "community": 10, "weight": 0.8, "source_file": "queue/producer.ts",   "source_location": "L24" },
+    { "id": "queue.scheduler",    "label": "CronScheduler",     "community": 10, "weight": 0.6, "source_file": "queue/cron.ts",       "source_location": "L50" }
+  ],
+  "links": [
+    { "source": "auth.login",         "target": "auth.hash",          "relation": "calls" },
+    { "source": "auth.login",         "target": "auth.session",       "relation": "uses"  },
+    { "source": "auth.session",       "target": "auth.validate",      "relation": "calls" },
+
+    { "source": "db.model",           "target": "db.query",           "relation": "uses"  },
+    { "source": "db.query",           "target": "db.connection",      "relation": "uses"  },
+
+    { "source": "api.router",         "target": "api.handler",        "relation": "calls" },
+    { "source": "api.handler",        "target": "api.response",       "relation": "calls" },
+    { "source": "api.router",         "target": "api.logger",         "relation": "uses"  },
+
+    { "source": "user.service",       "target": "user.profile",       "relation": "calls" },
+    { "source": "user.service",       "target": "user.settings",      "relation": "calls" },
+
+    { "source": "pay.checkout",       "target": "pay.stripe",         "relation": "calls" },
+    { "source": "pay.checkout",       "target": "pay.invoice",        "relation": "calls" },
+    { "source": "pay.webhook",        "target": "pay.ledger",         "relation": "uses"  },
+
+    { "source": "notif.email",        "target": "notif.template",     "relation": "uses"  },
+    { "source": "notif.sms",          "target": "notif.template",     "relation": "uses"  },
+
+    { "source": "cache.wrapper",      "target": "cache.redis",        "relation": "uses"  },
+
+    { "source": "analytics.track",    "target": "analytics.batch",    "relation": "uses"  },
+    { "source": "analytics.metric",   "target": "analytics.batch",    "relation": "uses"  },
+
+    { "source": "search.query",       "target": "search.config",      "relation": "uses"  },
+    { "source": "search.index",       "target": "search.config",      "relation": "uses"  },
+
+    { "source": "storage.cdn",        "target": "storage.s3",         "relation": "uses"  },
+
+    { "source": "queue.worker",       "target": "queue.producer",     "relation": "polls" },
+    { "source": "queue.scheduler",    "target": "queue.producer",     "relation": "triggers" },
+
+    { "source": "api.handler",        "target": "auth.validate",      "relation": "uses"  },
+    { "source": "api.handler",        "target": "user.service",       "relation": "calls" },
+    { "source": "user.service",       "target": "db.model",           "relation": "uses"  },
+    { "source": "user.service",       "target": "cache.wrapper",      "relation": "uses"  },
+    { "source": "pay.checkout",       "target": "db.model",           "relation": "uses"  },
+    { "source": "pay.checkout",       "target": "queue.producer",     "relation": "uses"  },
+    { "source": "queue.worker",       "target": "notif.email",        "relation": "calls" },
+    { "source": "queue.worker",       "target": "search.index",       "relation": "calls" },
+    { "source": "api.logger",         "target": "analytics.track",    "relation": "calls" },
+    { "source": "user.profile",       "target": "storage.cdn",        "relation": "uses"  }
+  ]
+}
