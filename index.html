@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Graphify - Interactive 3D Graph Visualization</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <!-- Theme Toggle -->
+    <div class="theme-toggle">
+        <button id="themeBtn" class="theme-btn" aria-label="Toggle theme">
+            <svg class="sun-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="5"></circle>
+                <line x1="12" y1="1" x2="12" y2="3"></line>
+                <line x1="12" y1="21" x2="12" y2="23"></line>
+                <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+                <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+                <line x1="1" y1="12" x2="3" y2="12"></line>
+                <line x1="21" y1="12" x2="23" y2="12"></line>
+                <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+                <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+            </svg>
+            <svg class="moon-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+            </svg>
+        </button>
+    </div>
+
+    <!-- Control Panel -->
+    <div class="control-panel">
+        <h2>Visualization Style</h2>
+        
+        <div class="control-group">
+            <label class="radio-label">
+                <input type="radio" name="style" value="glass" checked>
+                <span>Clear Glass</span>
+            </label>
+            <label class="radio-label">
+                <input type="radio" name="style" value="neon">
+                <span>Neon Glow</span>
+            </label>
+        </div>
+
+        <div class="divider"></div>
+
+        <div class="control-group">
+            <label class="field-label" for="tintRange">
+                Glass Tint<span id="tintValue">0.5</span>
+            </label>
+            <input type="range" id="tintRange" min="0" max="1" step="0.01" value="0.5">
+        </div>
+
+        <div class="control-group">
+            <label class="field-label" for="surfaceTintRange">
+                Surface Color Tint <span id="surfaceTintValue">5%</span>
+            </label>
+            <input type="range" id="surfaceTintRange" min="2" max="15" step="0.5" value="5">
+        </div>
+
+        <div class="control-group">
+            <label class="field-label" for="transparencyRange">
+                Transparency <span id="transparencyValue">95%</span>
+            </label>
+            <input type="range" id="transparencyRange" min="90" max="98" step="0.5" value="95">
+        </div>
+
+        <div class="control-group">
+            <label class="field-label" for="linkThicknessRange">
+                Link Thickness <span id="linkThicknessValue">2.0x</span>
+            </label>
+            <input type="range" id="linkThicknessRange" min="0.5" max="6" step="0.1" value="2">
+        </div>
+
+        <div class="control-group">
+            <label class="field-label" for="linkFilletRange">
+                Link Fillet <span id="linkFilletValue">1.00</span>
+            </label>
+            <input type="range" id="linkFilletRange" min="0" max="2" step="0.05" value="1.00">
+        </div>
+
+        <div class="control-group">
+            <label class="field-label" for="brightnessRange">
+                Scene Brightness <span id="brightnessValue">25%</span>
+            </label>
+            <input type="range" id="brightnessRange" min="0" max="250" step="5" value="25">
+        </div>
+
+        <div class="control-group">
+            <label class="checkbox-label">
+                <input type="checkbox" id="showLabels" checked>
+                <span>Show Labels</span>
+            </label>
+            <label class="checkbox-label">
+                <input type="checkbox" id="autoRotate" checked>
+                <span>Auto Rotate</span>
+            </label>
+        </div>
+
+        <div class="divider"></div>
+
+        <div class="camera-toolbar">
+            <button id="zoomInBtn" class="tool-btn" title="Zoom in" aria-label="Zoom in">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="11" cy="11" r="7"></circle>
+                    <line x1="11" y1="8" x2="11" y2="14"></line>
+                    <line x1="8" y1="11" x2="14" y2="11"></line>
+                    <line x1="16.5" y1="16.5" x2="21" y2="21"></line>
+                </svg>
+            </button>
+            <button id="zoomOutBtn" class="tool-btn" title="Zoom out" aria-label="Zoom out">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="11" cy="11" r="7"></circle>
+                    <line x1="8" y1="11" x2="14" y2="11"></line>
+                    <line x1="16.5" y1="16.5" x2="21" y2="21"></line>
+                </svg>
+            </button>
+            <button id="panBtn" class="tool-btn" title="Pan (toggle left-drag pan)" aria-label="Pan">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M12 2v20M2 12h20"></path>
+                    <path d="M9 5l3-3 3 3M9 19l3 3 3-3M5 9l-3 3 3 3M19 9l3 3-3 3"></path>
+                </svg>
+            </button>
+            <button id="centerBtn" class="tool-btn" title="Center / fit graph" aria-label="Center">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="3"></circle>
+                    <path d="M12 2v3M12 19v3M2 12h3M19 12h3"></path>
+                </svg>
+            </button>
+        </div>
+
+        <div class="divider"></div>
+
+        <button id="resetView" class="btn btn-primary">Reset View</button>
+    </div>
+
+    <!-- Side Panel for Selection Details -->
+    <div class="side-panel">
+        <div class="side-panel-header">
+            <h3>Details</h3>
+            <button class="close-btn" id="closeSidePanel">&times;</button>
+        </div>
+        <div class="side-panel-content" id="sidePanelContent">
+            <p class="empty-state">Select a node or link to view details</p>
+        </div>
+    </div>
+
+    <!-- 3D Canvas -->
+    <div id="canvas-container" class="canvas-container"></div>
+
+    <!-- Loading Indicator -->
+    <div class="loading-indicator" id="loadingIndicator">
+        <div class="spinner"></div>
+        <p>Loading visualization...</p>
+    </div>
+
+    <!-- Three.js via ES module import map (reliable addon resolution) -->
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "https://cdn.jsdelivr.net/npm/three@0.165.0/build/three.module.js",
+            "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.165.0/examples/jsm/"
+        }
+    }
+    </script>
+
+    <script type="module" src="main.js"></script>
+</body>
+</html>
