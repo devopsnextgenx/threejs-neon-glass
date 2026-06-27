@@ -410,8 +410,8 @@ class SceneManager {
     }
 
     showDetailsPanel(owner) {
-        const panel = document.querySelector('.side-panel');
         const content = document.getElementById('sidePanelContent');
+        if (!content) return;
         const d = owner.data;
         let html;
 
@@ -454,14 +454,13 @@ class SceneManager {
         }
 
         content.innerHTML = html;
-        panel.classList.add('active');
     }
 
     hideDetailsPanel() {
-        const panel = document.querySelector('.side-panel');
         const content = document.getElementById('sidePanelContent');
-        content.innerHTML = '<p class="empty-state">Select a node or link to view details</p>';
-        panel.classList.remove('active');
+        if (content) {
+            content.innerHTML = '<p class="empty-state">Select a node or link to view details</p>';
+        }
     }
 
     start() {
@@ -943,8 +942,8 @@ class Graph {
 document.addEventListener('DOMContentLoaded', () => {
     document.body.classList.add('dark-theme');
     const container = document.getElementById('canvas-container');
-    const graph = new Graph(container, 'graphify.json');
+    const graph = new Graph(container, './assets/graphify.json');
     graph.load();
 });
 
-export { Graph, SceneManager, Node, Link, MaterialFactory };
+export { Graph, SceneManager, Node, Link, MaterialFactory, communityColor };

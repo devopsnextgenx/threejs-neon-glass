@@ -1,11 +1,14 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Graphify - Interactive 3D Graph Visualization</title>
+    <title>Graphify - Standalone 3D Graph Viewer</title>
     <link rel="stylesheet" href="./assets/style.css">
+    <link rel="stylesheet" href="./assets/graph-standalone.css">
 </head>
+
 <body>
     <!-- Theme Toggle -->
     <div class="theme-toggle">
@@ -46,7 +49,20 @@
                 <h2>Visualization Style</h2>
             </div>
             <div class="control-panel-body">
-        
+
+        <div class="control-group">
+            <label class="field-label" for="nodeSearch">Search Nodes</label>
+            <input type="search" id="nodeSearch" class="search-input" placeholder="Filter by name or id…" autocomplete="off">
+            <div class="search-meta" id="searchMeta"></div>
+        </div>
+
+        <div class="control-group">
+            <label class="field-label">Clusters</label>
+            <div class="cluster-list" id="clusterList"></div>
+        </div>
+
+        <div class="divider"></div>
+
         <div class="control-group">
             <label class="radio-label">
                 <input type="radio" name="style" value="glass" checked>
@@ -147,6 +163,15 @@
 
         <div class="divider"></div>
 
+        <div class="control-group file-loader">
+            <label class="field-label">Load Graph</label>
+            <label class="file-btn">
+                📂 Open graph.json
+                <input type="file" id="fileInput" accept=".json,application/json">
+            </label>
+            <div class="load-error" id="loadError"></div>
+        </div>
+
         <button id="resetView" class="btn btn-primary">Reset View</button>
             </div>
         </div>
@@ -154,6 +179,11 @@
 
     <!-- 3D Canvas -->
     <div id="canvas-container" class="canvas-container"></div>
+
+    <!-- Drag & Drop overlay -->
+    <div class="drop-overlay" id="dropOverlay">
+        <div class="drop-card">Drop <code>graph.json</code> to load</div>
+    </div>
 
     <!-- Loading Indicator -->
     <div class="loading-indicator" id="loadingIndicator">
@@ -171,6 +201,7 @@
     }
     </script>
 
-    <script type="module" src="./assets/main.js"></script>
+    <script type="module" src="./assets/graph-standalone.js"></script>
 </body>
+
 </html>
