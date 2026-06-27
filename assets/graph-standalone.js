@@ -96,16 +96,20 @@ class StandaloneGraph {
             this.sceneManager.linksByIds.set(`${ld.source}__${ld.target}`, link);
         });
 
-        this._layout();
-        this.sceneManager.setStyle(this.sceneManager.currentStyle || 'glass');
-
-        // Reset explore filters for the freshly loaded graph, then rebuild the
-        // cluster list and apply node/link visibility (honours search + labels).
+        // Reset explore filters and rebuild the cluster list immediately after
+        // the new nodes/links exist - before the (heavier, fallible) layout and
+        // style passes - so the cluster list always reflects the loaded graph
+        // even if a later step fails.
         this._search = '';
         this._selectedCommunity = null;
         const searchInput = document.getElementById('nodeSearch');
         if (searchInput) searchInput.value = '';
         this._renderClusters();
+
+        this._layout();
+        this.sceneManager.setStyle(this.sceneManager.currentStyle || 'glass');
+
+        // Apply node/link visibility (honours search + labels + current style).
         this._applyFilter();
 
         document.getElementById('loadingIndicator')?.classList.add('hidden');
