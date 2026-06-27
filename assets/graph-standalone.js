@@ -114,6 +114,7 @@ class StandaloneGraph {
             this.sceneManager.start();
             this._started = true;
         }
+        this.sceneManager.centerView();
     }
 
     // Remove every node/link mesh and release GPU resources before a reload.

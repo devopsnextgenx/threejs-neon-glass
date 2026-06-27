@@ -27,6 +27,25 @@
         </button>
     </div>
 
+    <!-- Top Toolbar / Menu Bar -->
+    <div class="top-toolbar">
+        <label class="toolbar-btn" title="Load a graph.json file (replaces the current graph)">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+            </svg>
+            <span>Open graph.json</span>
+            <input type="file" id="fileInput" accept=".json,application/json">
+        </label>
+        <button id="resetView" class="toolbar-btn" title="Reset camera view">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M3 12a9 9 0 1 0 3-6.7L3 8"></path>
+                <path d="M3 3v5h5"></path>
+            </svg>
+            <span>Reset View</span>
+        </button>
+        <span class="load-error" id="loadError"></span>
+    </div>
+
     <!-- Unified Panel: Details (top) + Visualization Style (bottom) -->
     <div class="unified-panel">
         <!-- Details -->
@@ -152,15 +171,17 @@
             </button>
         </div>
 
-        <div class="divider"></div>
-
-        <button id="resetView" class="btn btn-primary">Reset View</button>
             </div>
         </div>
     </div>
 
     <!-- 3D Canvas -->
     <div id="canvas-container" class="canvas-container"></div>
+
+    <!-- Drag & Drop overlay -->
+    <div class="drop-overlay" id="dropOverlay">
+        <div class="drop-card">Drop <code>graph.json</code> to load</div>
+    </div>
 
     <!-- Loading Indicator -->
     <div class="loading-indicator" id="loadingIndicator">

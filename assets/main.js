@@ -768,39 +768,146 @@ class Graph {
         this.nodes = [];
         this.links = [];
         this._linkLengthScale = 1.5;
+        this._started = false;
         this._wireUI();
+        this._wireFileLoading();
     }
 
     async load() {
         try {
             const res = await fetch(this.dataUrl);
             const data = await res.json();
-
-            data.nodes.forEach((nd) => {
-                const node = new Node(nd, this.sceneManager);
-                this.nodes.push(node);
-                this.sceneManager.nodesByIds.set(nd.id, node);
-            });
-
-            data.links.forEach((ld) => {
-                const src = this.sceneManager.nodesByIds.get(ld.source);
-                const tgt = this.sceneManager.nodesByIds.get(ld.target);
-                if (!src || !tgt) return;
-                const link = new Link(ld, src, tgt, this.sceneManager);
-                this.links.push(link);
-                this.sceneManager.linksByIds.set(`${ld.source}__${ld.target}`, link);
-            });
-
-            this._layout();
-            this.sceneManager.setStyle('glass');
-
-            document.getElementById('loadingIndicator')?.classList.add('hidden');
-            this.sceneManager.start();
+            this.loadData(data);
         } catch (err) {
             console.error('Failed to load graph data:', err);
             const li = document.getElementById('loadingIndicator');
             if (li) li.querySelector('p').textContent = 'Failed to load graphify.json';
         }
+    }
+
+    // Build (or rebuild) the scene from a graph data object. Clears any
+    // existing nodes/links/labels first so loading a new graph.json fully
+    // replaces what's on the canvas, then re-frames the camera on the result.
+    loadData(data) {
+        if (!data || !Array.isArray(data.nodes)) {
+            throw new Error('Graph JSON must contain a "nodes" array.');
+        }
+        this.clear();
+
+        data.nodes.forEach((nd) => {
+            const node = new Node(nd, this.sceneManager);
+            this.nodes.push(node);
+            this.sceneManager.nodesByIds.set(nd.id, node);
+        });
+
+        (data.links || data.edges || []).forEach((ld) => {
+            const src = this.sceneManager.nodesByIds.get(ld.source);
+            const tgt = this.sceneManager.nodesByIds.get(ld.target);
+            if (!src || !tgt) return;
+            const link = new Link(ld, src, tgt, this.sceneManager);
+            this.links.push(link);
+            this.sceneManager.linksByIds.set(`${ld.source}__${ld.target}`, link);
+        });
+
+        this._layout();
+        this.sceneManager.setStyle(this.sceneManager.currentStyle || 'glass');
+
+        // Honour the Show Labels checkbox for the freshly loaded graph.
+        const labelsOn = document.getElementById('showLabels')?.checked ?? true;
+        this.nodes.forEach((n) => { n.label.visible = labelsOn; });
+
+        document.getElementById('loadingIndicator')?.classList.add('hidden');
+
+        if (!this._started) {
+            this.sceneManager.start();
+            this._started = true;
+        }
+        this.sceneManager.centerView();
+    }
+
+    // Remove every node/link mesh and label, releasing GPU resources before a
+    // reload so the previous graph is fully cleared from the canvas.
+    clear() {
+        const sm = this.sceneManager;
+        sm.deselectObject();
+
+        this.nodes.forEach((n) => {
+            sm.scene.remove(n.mesh);
+            sm.scene.remove(n.core);
+            sm.labelScene.remove(n.label);
+            n.mesh.geometry.dispose();
+            n.mesh.material.dispose();
+            n.core.geometry.dispose();
+            n.core.material.dispose();
+            n.label.material.map?.dispose();
+            n.label.material.dispose();
+        });
+
+        this.links.forEach((l) => {
+            sm.scene.remove(l.group);
+            l.meshes.forEach((m) => {
+                m.geometry.dispose();
+                m.material.dispose();
+            });
+        });
+
+        this.nodes = [];
+        this.links = [];
+        sm.nodesByIds.clear();
+        sm.linksByIds.clear();
+    }
+
+    // File picker + drag & drop loading of arbitrary graph JSON.
+    _wireFileLoading() {
+        const errorEl = document.getElementById('loadError');
+        const setError = (msg) => { if (errorEl) errorEl.textContent = msg || ''; };
+
+        const readFile = (file) => {
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                try {
+                    const data = JSON.parse(e.target.result);
+                    this.loadData(data);
+                    setError('');
+                } catch (err) {
+                    setError(`Could not load: ${err.message}`);
+                }
+            };
+            reader.onerror = () => setError('Could not read the file.');
+            reader.readAsText(file);
+        };
+
+        document.getElementById('fileInput')?.addEventListener('change', (e) => {
+            readFile(e.target.files[0]);
+            e.target.value = '';
+        });
+
+        // Drag & drop anywhere on the page.
+        const overlay = document.getElementById('dropOverlay');
+        let dragDepth = 0;
+        const showOverlay = (show) => {
+            if (overlay) overlay.classList.toggle('active', show);
+        };
+
+        window.addEventListener('dragenter', (e) => {
+            e.preventDefault();
+            dragDepth++;
+            showOverlay(true);
+        });
+        window.addEventListener('dragover', (e) => e.preventDefault());
+        window.addEventListener('dragleave', (e) => {
+            e.preventDefault();
+            dragDepth = Math.max(0, dragDepth - 1);
+            if (dragDepth === 0) showOverlay(false);
+        });
+        window.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dragDepth = 0;
+            showOverlay(false);
+            const file = e.dataTransfer?.files?.[0];
+            if (file) readFile(file);
+        });
     }
 
     // Simple 3D force-directed layout (Fruchterman-Reingold flavored).
