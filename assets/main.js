@@ -566,18 +566,35 @@ class Node {
         this._positionLabel();
     }
 
+    setClusterHighlight(active) {
+        if (this._clusterHighlight === active) return;
+        this._clusterHighlight = active;
+        this.updateMaterial(this.sceneManager.currentStyle);
+    }
+
     updateMaterial(style) {
+        let active = this._clusterHighlight;
+        let c = new THREE.Color(this.color());
+        if (active) {
+            let hsl = {};
+            c.getHSL(hsl);
+            c.setHSL(hsl.h, hsl.s, Math.min(1.0, hsl.l + 0.2)); // +20% lightness to be very visible
+        }
+
         this.mesh.material.dispose();
         this.mesh.material = style === 'neon'
-            ? MaterialFactory.neon(this.color())
-            : MaterialFactory.glass(this.color(), {
+            ? MaterialFactory.neon(c.getHex(), { emissive: 1.6 * (active ? 2.5 : 1.0) })
+            : MaterialFactory.glass(c.getHex(), {
                 tint: this.sceneManager.tint,
                 surfaceTint: this.sceneManager.surfaceTint,
                 transparency: this.sceneManager.transparency,
                 thickness: this.radius,
             });
-        // Core only matters for glass refraction; neon shell glows on its own.
+            
         this.core.visible = style !== 'neon';
+        this.core.material.color.copy(c);
+        this.core.material.emissive.copy(c);
+        this.core.material.emissiveIntensity = 0.18 * (active ? 3.0 : 1.0);
     }
 
     animate(t) {
@@ -630,11 +647,25 @@ class Link {
         return a.lerp(b, 0.5).getHex();
     }
 
+    setClusterHighlight(active) {
+        if (this._clusterHighlight === active) return;
+        this._clusterHighlight = active;
+        this.updateMaterial(this.sceneManager.currentStyle);
+    }
+
     // Fillet end material: the connected sphere's exact glass (or neon) look.
     _endMaterial(node, style) {
+        let active = this._clusterHighlight;
+        let c = new THREE.Color(node.color());
+        if (active) {
+            let hsl = {};
+            c.getHSL(hsl);
+            c.setHSL(hsl.h, hsl.s, Math.min(1.0, hsl.l + 0.2));
+        }
+
         return style === 'neon'
-            ? MaterialFactory.neon(node.color(), { emissive: 1.1 })
-            : MaterialFactory.glass(node.color(), {
+            ? MaterialFactory.neon(c.getHex(), { emissive: 1.1 * (active ? 2.5 : 1.0) })
+            : MaterialFactory.glass(c.getHex(), {
                 tint: this.sceneManager.tint,
                 surfaceTint: this.sceneManager.surfaceTint,
                 transparency: this.sceneManager.transparency,
@@ -644,9 +675,17 @@ class Link {
 
     // Straight middle material: the blended source/target link colour.
     _midMaterial(style) {
+        let active = this._clusterHighlight;
+        let c = new THREE.Color(this.color());
+        if (active) {
+            let hsl = {};
+            c.getHSL(hsl);
+            c.setHSL(hsl.h, hsl.s, Math.min(1.0, hsl.l + 0.2));
+        }
+
         return style === 'neon'
-            ? MaterialFactory.neon(this.color(), { emissive: 1.1 })
-            : MaterialFactory.glass(this.color(), {
+            ? MaterialFactory.neon(c.getHex(), { emissive: 1.1 * (active ? 2.5 : 1.0) })
+            : MaterialFactory.glass(c.getHex(), {
                 tint: this.sceneManager.tint,
                 surfaceTint: this.sceneManager.surfaceTint,
                 transparency: this.sceneManager.transparency,

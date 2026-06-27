@@ -537,11 +537,13 @@ class StandaloneGraph {
                 n.mesh.visible = false;
                 n.core.visible = false;
                 n.label.visible = false;
+                n.setClusterHighlight(false);
                 stateById.set(d.id, 'hidden');
                 return;
             }
 
             const ghost = clustering && (d?.community ?? n.community ?? 0) !== sel;
+            const isHighlightedClusterNode = clustering && !ghost;
             const scale = ghost ? 0.4 : 1.0;
 
             n.mesh.visible = true;
@@ -549,6 +551,10 @@ class StandaloneGraph {
             n.label.visible = labelsOn && !ghost;
             n.mesh.scale.setScalar(scale);
             n.core.scale.setScalar(scale);
+            
+            if (typeof n.setClusterHighlight === 'function') {
+                n.setClusterHighlight(isHighlightedClusterNode);
+            }
 
             stateById.set(d.id, ghost ? 'ghost' : 'member');
             shown++;
@@ -564,6 +570,9 @@ class StandaloneGraph {
                 ? present && a === 'member' && b === 'member'
                 : present;
             l.group.visible = !!visible;
+            if (typeof l.setClusterHighlight === 'function') {
+                l.setClusterHighlight(clustering && visible);
+            }
         });
 
         const meta = document.getElementById('searchMeta');
