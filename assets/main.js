@@ -768,6 +768,7 @@ class Graph {
         this.nodes = [];
         this.links = [];
         this._linkLengthScale = 1.5;
+        this._gravityBase = 0.15;
         this._started = false;
         this._wireUI();
         this._wireFileLoading();
@@ -947,7 +948,14 @@ class Graph {
                 link.targetNode._disp.add(delta);
             });
 
+            // Stronger gravity towards the origin to keep disconnected clusters from drifting too far.
+            // Using a baseline gravity plus a small multiplier based on distance from center 
+            // so that very far clusters are pulled in more aggressively.
             this.nodes.forEach((n) => {
+                const distFromCenter = n.position.length();
+                const gravity = this._gravityBase + (distFromCenter * 0.005);
+                n._disp.add(n.position.clone().multiplyScalar(-gravity));
+                
                 const d = n._disp.length() || 0.01;
                 const next = n.position.clone()
                     .add(n._disp.multiplyScalar(Math.min(d, temp) / d));
@@ -1008,6 +1016,12 @@ class Graph {
         this._layout();
     }
 
+    // Re-run the layout with a new gravity base to pull clusters together (or apart).
+    setGravity(val) {
+        this._gravityBase = val;
+        this._layout();
+    }
+
     _wireUI() {
         const sm = this.sceneManager;
 
@@ -1062,6 +1076,13 @@ class Graph {
             if (out) out.textContent = f.toFixed(2);
         });
 
+        document.getElementById('gravityRange')?.addEventListener('input', (e) => {
+            const v = parseFloat(e.target.value);
+            this.setGravity(v);
+            const out = document.getElementById('gravityValue');
+            if (out) out.textContent = v.toFixed(2);
+        });
+
         document.getElementById('brightnessRange')?.addEventListener('input', (e) => {
             const pct = parseFloat(e.target.value);
             sm.setBrightness(pct / 100);
@@ -1096,7 +1117,7 @@ class Graph {
             sm.deselectObject();
         });
 
-        const saveInputs = ['tintRange', 'surfaceTintRange', 'transparencyRange', 'linkThicknessRange', 'linkLengthRange', 'linkFilletRange', 'brightnessRange', 'showLabels', 'autoRotate'];
+        const saveInputs = ['tintRange', 'surfaceTintRange', 'transparencyRange', 'linkThicknessRange', 'linkLengthRange', 'linkFilletRange', 'gravityRange', 'brightnessRange', 'showLabels', 'autoRotate'];
         saveInputs.forEach(id => {
             document.getElementById(id)?.addEventListener('change', () => this._saveSettings());
         });
@@ -1113,6 +1134,7 @@ class Graph {
             linkThickness: document.getElementById('linkThicknessRange')?.value,
             linkLength: document.getElementById('linkLengthRange')?.value,
             linkFillet: document.getElementById('linkFilletRange')?.value,
+            gravity: document.getElementById('gravityRange')?.value,
             brightness: document.getElementById('brightnessRange')?.value,
             showLabels: document.getElementById('showLabels')?.checked,
             autoRotate: document.getElementById('autoRotate')?.checked,
@@ -1148,6 +1170,7 @@ class Graph {
                 setVal('linkThicknessRange', settings.linkThickness);
                 setVal('linkLengthRange', settings.linkLength);
                 setVal('linkFilletRange', settings.linkFillet);
+                setVal('gravityRange', settings.gravity);
                 setVal('brightnessRange', settings.brightness);
                 setCheck('showLabels', settings.showLabels);
                 setCheck('autoRotate', settings.autoRotate);
