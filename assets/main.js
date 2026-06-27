@@ -568,6 +568,7 @@ class Node {
 
     setClusterHighlight(active) {
         if (this._clusterHighlight === active) return;
+        console.log('[Node] setClusterHighlight:', this.data.id, '→', active, '| style =', this.sceneManager.currentStyle);
         this._clusterHighlight = active;
         this.updateMaterial(this.sceneManager.currentStyle);
     }
@@ -575,10 +576,12 @@ class Node {
     updateMaterial(style) {
         let active = this._clusterHighlight;
         let c = new THREE.Color(this.color());
+        console.log('[Node] updateMaterial:', this.data.id, '| active =', active, '| style =', style, '| color before =', c.getHexString());
         if (active) {
             let hsl = {};
             c.getHSL(hsl);
-            c.setHSL(hsl.h, hsl.s, Math.min(1.0, hsl.l + 0.2)); // +20% lightness to be very visible
+            c.setHSL(hsl.h, hsl.s, Math.min(1.0, hsl.l + 0.2));
+            console.log('[Node] updateMaterial: brightened color =', c.getHexString(), '| emissive factor =', 1.6 * 2.5);
         }
 
         this.mesh.material.dispose();

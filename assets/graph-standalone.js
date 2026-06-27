@@ -472,6 +472,7 @@ class StandaloneGraph {
     _selectCommunity(community) {
         this._selectedCommunity =
             this._selectedCommunity === community ? null : community;
+        console.log('[Graphify] _selectCommunity: sel =', this._selectedCommunity, '| nodes =', this.nodes.length);
         this._renderClusters();
         this._applyFilter();
 
@@ -480,6 +481,7 @@ class StandaloneGraph {
         } else {
             const members = this.nodes.filter(
                 (n) => (n.data?.community ?? n.community ?? 0) === this._selectedCommunity);
+            console.log('[Graphify] _selectCommunity: members =', members.length);
             this._focusNodes(members);
         }
     }
@@ -553,7 +555,12 @@ class StandaloneGraph {
             n.core.scale.setScalar(scale);
             
             if (typeof n.setClusterHighlight === 'function') {
+                if (isHighlightedClusterNode) {
+                    console.log('[Graphify] _applyFilter: highlighting node', d.id, 'community', d.community);
+                }
                 n.setClusterHighlight(isHighlightedClusterNode);
+            } else {
+                console.warn('[Graphify] _applyFilter: n.setClusterHighlight is NOT a function for node', d.id);
             }
 
             stateById.set(d.id, ghost ? 'ghost' : 'member');
