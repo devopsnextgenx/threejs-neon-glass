@@ -911,89 +911,204 @@ class Graph {
         });
     }
 
-    // Simple 3D force-directed layout (Fruchterman-Reingold flavored).
+    // Cluster-Aware 3D Layout Pipeline
     _layout() {
+        if (this.nodes.length === 0) return;
+
+        // 1. Identify Connected Components (Clusters) via BFS
+        const clusters = [];
+        const visited = new Set();
+        const adj = new Map();
+        
+        this.nodes.forEach(n => adj.set(n, []));
+        this.links.forEach(l => {
+            adj.get(l.sourceNode).push(l.targetNode);
+            adj.get(l.targetNode).push(l.sourceNode);
+        });
+
+        this.nodes.forEach(startNode => {
+            if (!visited.has(startNode)) {
+                const clusterNodes = [];
+                const queue = [startNode];
+                visited.add(startNode);
+                
+                while(queue.length > 0) {
+                    const curr = queue.shift();
+                    clusterNodes.push(curr);
+                    for (const neighbor of adj.get(curr)) {
+                        if (!visited.has(neighbor)) {
+                            visited.add(neighbor);
+                            queue.push(neighbor);
+                        }
+                    }
+                }
+                clusters.push({ nodes: clusterNodes });
+            }
+        });
+
+        // 2 & 3. Local Layout and Scale Normalization per Cluster
         const iterations = 220;
-        const area = 28;
-        const k = area / Math.cbrt(Math.max(this.nodes.length, 1));
-        let temp = area * 0.18;
+        
+        clusters.forEach(cluster => {
+            const cNodes = cluster.nodes;
+            const cLinks = this.links.filter(l => cNodes.includes(l.sourceNode));
+            
+            // Randomly position near origin initially to avoid zero-distance issues
+            cNodes.forEach(n => {
+                n.setPosition(new THREE.Vector3(
+                    (Math.random() - 0.5) * 10,
+                    (Math.random() - 0.5) * 10,
+                    (Math.random() - 0.5) * 10
+                ));
+            });
 
-        for (let it = 0; it < iterations; it++) {
-            this.nodes.forEach((n) => (n._disp = new THREE.Vector3()));
+            if (cNodes.length > 1) {
+                const area = 28;
+                const k = area / Math.cbrt(cNodes.length);
+                let temp = area * 0.18;
 
-            for (let i = 0; i < this.nodes.length; i++) {
-                for (let j = i + 1; j < this.nodes.length; j++) {
-                    const a = this.nodes[i];
-                    const b = this.nodes[j];
-                    const delta = new THREE.Vector3().subVectors(a.position, b.position);
-                    let dist = delta.length() || 0.01;
-                    const repulse = (k * k) / dist;
-                    delta.normalize().multiplyScalar(repulse);
-                    a._disp.add(delta);
-                    b._disp.sub(delta);
+                for (let it = 0; it < iterations; it++) {
+                    cNodes.forEach((n) => (n._disp = new THREE.Vector3()));
+
+                    for (let i = 0; i < cNodes.length; i++) {
+                        for (let j = i + 1; j < cNodes.length; j++) {
+                            const a = cNodes[i];
+                            const b = cNodes[j];
+                            const delta = new THREE.Vector3().subVectors(a.position, b.position);
+                            let dist = delta.length() || 0.01;
+                            const repulse = (k * k) / dist;
+                            delta.normalize().multiplyScalar(repulse);
+                            a._disp.add(delta);
+                            b._disp.sub(delta);
+                        }
+                    }
+
+                    cLinks.forEach((link) => {
+                        const delta = new THREE.Vector3()
+                            .subVectors(link.sourceNode.position, link.targetNode.position);
+                        const dist = delta.length() || 0.01;
+                        const rest = this._desiredLinkLength(link);
+                        const attract = (dist - rest) * 0.35;
+                        delta.normalize().multiplyScalar(attract);
+                        link.sourceNode._disp.sub(delta);
+                        link.targetNode._disp.add(delta);
+                    });
+
+                    // Local gravity to keep the cluster compact
+                    const localGravity = 0.05;
+                    cNodes.forEach((n) => {
+                        n._disp.add(n.position.clone().multiplyScalar(-localGravity));
+                        const d = n._disp.length() || 0.01;
+                        const next = n.position.clone().add(n._disp.multiplyScalar(Math.min(d, temp) / d));
+                        n.position.copy(next);
+                    });
+
+                    temp *= 0.985;
                 }
             }
 
-            this.links.forEach((link) => {
-                const delta = new THREE.Vector3()
-                    .subVectors(link.sourceNode.position, link.targetNode.position);
-                const dist = delta.length() || 0.01;
-                // Spring pulling each link toward its desired rest length
-                // (per-link JSON `length` or 1.5x largest connected diameter,
-                // scaled by the Link Length slider).
-                const rest = this._desiredLinkLength(link);
-                const attract = (dist - rest) * 0.35;
-                delta.normalize().multiplyScalar(attract);
-                link.sourceNode._disp.sub(delta);
-                link.targetNode._disp.add(delta);
+            // Center the local layout around (0,0,0)
+            const center = new THREE.Vector3();
+            cNodes.forEach((n) => center.add(n.position));
+            center.multiplyScalar(1 / Math.max(cNodes.length, 1));
+            cNodes.forEach((n) => n.setPosition(n.position.clone().sub(center)));
+
+            // Normalize local scale so internal links match desired lengths
+            if (cLinks.length > 0) {
+                let actual = 0;
+                let desired = 0;
+                cLinks.forEach((l) => {
+                    actual += l.sourceNode.position.distanceTo(l.targetNode.position);
+                    desired += this._desiredLinkLength(l);
+                });
+                if (actual > 1e-3) {
+                    const s = desired / actual;
+                    cNodes.forEach((n) => n.setPosition(n.position.clone().multiplyScalar(s)));
+                }
+            }
+
+            // Calculate Physical Bounding Radius of this cluster
+            let maxRadiusSq = 0.001;
+            cNodes.forEach(n => {
+                const distSq = n.position.lengthSq();
+                if (distSq > maxRadiusSq) maxRadiusSq = distSq;
+            });
+            // Add a buffer equal to a large node's radius (approx 2.5) to the bounding sphere
+            cluster.radius = Math.sqrt(maxRadiusSq) + 2.5; 
+            cluster.center = new THREE.Vector3(); 
+        });
+
+        // 4. Cluster Packing
+        // Pack clusters by treating them as circles that repel each other to min spacing (diameter * 1.2)
+        // while global gravity pulls them to the scene center.
+        if (clusters.length > 1) {
+            // Initial placement: spread them randomly so they can pack smoothly
+            clusters.forEach((c, idx) => {
+                if (idx > 0) {
+                    const r = 10 * idx;
+                    c.center.set(
+                        (Math.random() - 0.5) * r,
+                        (Math.random() - 0.5) * r,
+                        (Math.random() - 0.5) * r
+                    );
+                }
             });
 
-            // Stronger gravity towards the origin to keep disconnected clusters from drifting too far.
-            // Using a baseline gravity plus a small multiplier based on distance from center 
-            // so that very far clusters are pulled in more aggressively.
-            this.nodes.forEach((n) => {
-                const distFromCenter = n.position.length();
-                const gravity = this._gravityBase + (distFromCenter * 0.005);
-                n._disp.add(n.position.clone().multiplyScalar(-gravity));
-                
-                const d = n._disp.length() || 0.01;
-                const next = n.position.clone()
-                    .add(n._disp.multiplyScalar(Math.min(d, temp) / d));
-                n.position.copy(next);
-            });
+            const packingIterations = 150;
+            let tempPack = 20.0;
+            const globalGravity = this._gravityBase || 0.15;
 
-            temp *= 0.985;
+            for (let it = 0; it < packingIterations; it++) {
+                clusters.forEach(c => c._disp = new THREE.Vector3());
+
+                for (let i = 0; i < clusters.length; i++) {
+                    for (let j = i + 1; j < clusters.length; j++) {
+                        const a = clusters[i];
+                        const b = clusters[j];
+                        const delta = new THREE.Vector3().subVectors(a.center, b.center);
+                        let dist = delta.length() || 0.01;
+                        
+                        // Required spacing: sum of their radii * 1.2 multiplier
+                        const minSpacing = (a.radius + b.radius) * 1.2;
+
+                        if (dist < minSpacing) {
+                            // Collision repulsion (strong spring)
+                            const overlap = minSpacing - dist;
+                            const force = overlap * 0.5;
+                            delta.normalize().multiplyScalar(force);
+                            a._disp.add(delta);
+                            b._disp.sub(delta);
+                        }
+                    }
+                }
+
+                // Global gravity pulling cluster centers together
+                clusters.forEach(c => {
+                    c._disp.add(c.center.clone().multiplyScalar(-globalGravity * 0.1));
+                    
+                    const d = c._disp.length() || 0.01;
+                    const next = c.center.clone().add(c._disp.multiplyScalar(Math.min(d, tempPack) / d));
+                    c.center.copy(next);
+                });
+
+                tempPack *= 0.98;
+            }
+
+            // Apply the final packed centers to shift all nodes in each cluster
+            clusters.forEach(c => {
+                c.nodes.forEach(n => {
+                    n.setPosition(n.position.clone().add(c.center));
+                });
+            });
         }
 
-        // Center the layout.
-        const center = new THREE.Vector3();
-        this.nodes.forEach((n) => center.add(n.position));
-        center.multiplyScalar(1 / Math.max(this.nodes.length, 1));
-        this.nodes.forEach((n) => n.setPosition(n.position.clone().sub(center)));
-
-        // Normalize the overall scale so connected nodes settle at their desired
-        // link length (~1.5x node diameter by default). All-pairs repulsion
-        // tends to inflate spacing, so we rescale every position uniformly to
-        // bring the mean actual length onto the mean desired length.
-        this._normalizeScale();
+        // Center the entire global layout
+        const globalCenter = new THREE.Vector3();
+        this.nodes.forEach((n) => globalCenter.add(n.position));
+        globalCenter.multiplyScalar(1 / Math.max(this.nodes.length, 1));
+        this.nodes.forEach((n) => n.setPosition(n.position.clone().sub(globalCenter)));
 
         this.links.forEach((l) => l.update());
-    }
-
-    // Uniformly rescale all node positions so the average link length matches
-    // the average desired rest length. Preserves the layout's shape while
-    // pulling nodes to ~1.5-3x their diameter apart.
-    _normalizeScale() {
-        if (!this.links.length) return;
-        let actual = 0;
-        let desired = 0;
-        this.links.forEach((l) => {
-            actual += l.sourceNode.position.distanceTo(l.targetNode.position);
-            desired += this._desiredLinkLength(l);
-        });
-        if (actual <= 1e-3) return;
-        const s = desired / actual;
-        this.nodes.forEach((n) => n.setPosition(n.position.clone().multiplyScalar(s)));
     }
 
     // Desired rest length for a link: an explicit JSON `length` if provided,
