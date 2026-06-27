@@ -1095,6 +1095,74 @@ class Graph {
         document.getElementById('closeSidePanel')?.addEventListener('click', () => {
             sm.deselectObject();
         });
+
+        const saveInputs = ['tintRange', 'surfaceTintRange', 'transparencyRange', 'linkThicknessRange', 'linkLengthRange', 'linkFilletRange', 'brightnessRange', 'showLabels', 'autoRotate'];
+        saveInputs.forEach(id => {
+            document.getElementById(id)?.addEventListener('change', () => this._saveSettings());
+        });
+        document.querySelectorAll('input[name="style"]').forEach(r => r.addEventListener('change', () => this._saveSettings()));
+
+        this._loadSettings();
+    }
+
+    _saveSettings() {
+        const settings = {
+            tint: document.getElementById('tintRange')?.value,
+            surfaceTint: document.getElementById('surfaceTintRange')?.value,
+            transparency: document.getElementById('transparencyRange')?.value,
+            linkThickness: document.getElementById('linkThicknessRange')?.value,
+            linkLength: document.getElementById('linkLengthRange')?.value,
+            linkFillet: document.getElementById('linkFilletRange')?.value,
+            brightness: document.getElementById('brightnessRange')?.value,
+            showLabels: document.getElementById('showLabels')?.checked,
+            autoRotate: document.getElementById('autoRotate')?.checked,
+            style: document.querySelector('input[name="style"]:checked')?.value
+        };
+        localStorage.setItem('graphify_settings', JSON.stringify(settings));
+    }
+
+    _loadSettings() {
+        try {
+            const saved = localStorage.getItem('graphify_settings');
+            if (saved) {
+                const settings = JSON.parse(saved);
+                
+                const setVal = (id, val) => {
+                    const el = document.getElementById(id);
+                    if (el && val !== undefined) {
+                        el.value = val;
+                        el.dispatchEvent(new Event('input'));
+                    }
+                };
+                const setCheck = (id, checked) => {
+                    const el = document.getElementById(id);
+                    if (el && checked !== undefined) {
+                        el.checked = checked;
+                        el.dispatchEvent(new Event('change'));
+                    }
+                };
+                
+                setVal('tintRange', settings.tint);
+                setVal('surfaceTintRange', settings.surfaceTint);
+                setVal('transparencyRange', settings.transparency);
+                setVal('linkThicknessRange', settings.linkThickness);
+                setVal('linkLengthRange', settings.linkLength);
+                setVal('linkFilletRange', settings.linkFillet);
+                setVal('brightnessRange', settings.brightness);
+                setCheck('showLabels', settings.showLabels);
+                setCheck('autoRotate', settings.autoRotate);
+
+                if (settings.style) {
+                    const radio = document.querySelector(`input[name="style"][value="${settings.style}"]`);
+                    if (radio) {
+                        radio.checked = true;
+                        radio.dispatchEvent(new Event('change'));
+                    }
+                }
+            }
+        } catch (e) {
+            console.warn('Failed to load settings from localStorage', e);
+        }
     }
 }
 
