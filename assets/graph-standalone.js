@@ -76,16 +76,31 @@ class StandaloneGraph {
 
     // Build (or rebuild) the scene from a graph data object.
     loadData(data) {
+        console.group('[Graphify] loadData()');
         if (!data || !Array.isArray(data.nodes)) {
+            console.error('[Graphify] loadData: invalid data — missing nodes array', data);
             throw new Error('Graph JSON must contain a "nodes" array.');
         }
+        console.log('[Graphify] loadData: raw data received —', data.nodes.length, 'nodes,', (data.links || data.edges || []).length, 'links');
+
         this.clear();
+        console.log('[Graphify] loadData: clear() done. this.nodes.length =', this.nodes.length);
 
         data.nodes.forEach((nd) => {
             const node = new Node(nd, this.sceneManager);
             this.nodes.push(node);
             this.sceneManager.nodesByIds.set(nd.id, node);
         });
+        console.log('[Graphify] loadData: nodes pushed. this.nodes.length =', this.nodes.length);
+
+        // Log first node shape so we can confirm n.data structure
+        if (this.nodes.length > 0) {
+            const firstNode = this.nodes[0];
+            console.log('[Graphify] loadData: first node instance keys =', Object.keys(firstNode));
+            console.log('[Graphify] loadData: first node .data =', firstNode.data);
+            console.log('[Graphify] loadData: first node .community (direct) =', firstNode.community);
+            console.log('[Graphify] loadData: first node .data?.community =', firstNode.data?.community);
+        }
 
         (data.links || data.edges || []).forEach((ld) => {
             const src = this.sceneManager.nodesByIds.get(ld.source);
@@ -95,36 +110,78 @@ class StandaloneGraph {
             this.links.push(link);
             this.sceneManager.linksByIds.set(`${ld.source}__${ld.target}`, link);
         });
-
-        // Reset explore filters and rebuild the cluster list immediately after
-        // the new nodes/links exist - before the (heavier, fallible) layout and
-        // style passes - so the cluster list always reflects the loaded graph
-        // even if a later step fails.
-        this._search = '';
-        this._selectedCommunity = null;
-        const searchInput = document.getElementById('nodeSearch');
-        if (searchInput) searchInput.value = '';
-        this._renderClusters();
+        console.log('[Graphify] loadData: links pushed. this.links.length =', this.links.length);
 
         this._layout();
-        this.sceneManager.setStyle(this.sceneManager.currentStyle || 'glass');
+        console.log('[Graphify] loadData: _layout() done');
 
-        // Apply node/link visibility (honours search + labels + current style).
+        this.sceneManager.setStyle(this.sceneManager.currentStyle || 'glass');
+        console.log('[Graphify] loadData: setStyle() done. currentStyle =', this.sceneManager.currentStyle);
+
         this._applyFilter();
+        console.log('[Graphify] loadData: _applyFilter() done');
+
+        this._renderClusters();
+        console.log('[Graphify] loadData: _renderClusters() done (synchronous)');
+
+        // Snapshot the DOM right after _renderClusters to see if it wrote correctly
+        const listElAfterSync = document.getElementById('clusterList');
+        console.log('[Graphify] loadData: #clusterList children count after sync render =', listElAfterSync?.children.length);
+        console.log('[Graphify] loadData: #clusterList innerHTML after sync render =', listElAfterSync?.innerHTML?.slice(0, 300));
 
         document.getElementById('loadingIndicator')?.classList.add('hidden');
 
         if (!this._started) {
+            console.log('[Graphify] loadData: calling sceneManager.start() for first time');
             this.sceneManager.start();
             this._started = true;
         }
         this.sceneManager.centerView();
+        console.log('[Graphify] loadData: centerView() done');
+
+        // Snapshot DOM again after centerView — did something wipe #clusterList?
+        const listElAfterCenter = document.getElementById('clusterList');
+        console.log('[Graphify] loadData: #clusterList children count after centerView =', listElAfterCenter?.children.length);
+
+        Promise.resolve().then(() => {
+            console.log('[Graphify] loadData: microtask _renderClusters() firing');
+            this._renderClusters();
+            const listElMicro = document.getElementById('clusterList');
+            console.log('[Graphify] loadData: #clusterList children count after microtask render =', listElMicro?.children.length);
+            console.log('[Graphify] loadData: #clusterList innerHTML after microtask =', listElMicro?.innerHTML?.slice(0, 300));
+        });
+
+        console.groupEnd();
     }
 
     // Remove every node/link mesh and release GPU resources before a reload.
     clear() {
+        console.group('[Graphify] clear()');
         const sm = this.sceneManager;
+        console.log('[Graphify] clear: calling sm.deselectObject()');
         sm.deselectObject();
+        console.log('[Graphify] clear: deselectObject() returned');
+
+        // Reset explore/filter state so the new graph always starts clean.
+        this._search = '';
+        this._selectedCommunity = null;
+        console.log('[Graphify] clear: state reset — _search="", _selectedCommunity=null');
+
+        // Clear the cluster list DOM immediately so stale entries never linger
+        // between the clear() call and the subsequent _renderClusters() call.
+        const clusterList = document.getElementById('clusterList');
+        console.log('[Graphify] clear: #clusterList element found =', !!clusterList, '| children before wipe =', clusterList?.children.length);
+        if (clusterList) clusterList.innerHTML = '';
+        console.log('[Graphify] clear: #clusterList wiped');
+
+        // Clear the search input value to match the reset _search state.
+        const searchInput = document.getElementById('nodeSearch');
+        if (searchInput) searchInput.value = '';
+
+        // Clear the search meta text.
+        const searchMeta = document.getElementById('searchMeta');
+        if (searchMeta) searchMeta.textContent = '';
+        console.log('[Graphify] clear: old nodes to dispose =', this.nodes.length, '| old links =', this.links.length);
 
         this.nodes.forEach((n) => {
             sm.scene.remove(n.mesh);
@@ -150,6 +207,8 @@ class StandaloneGraph {
         this.links = [];
         sm.nodesByIds.clear();
         sm.linksByIds.clear();
+        console.log('[Graphify] clear: done');
+        console.groupEnd();
     }
 
     // Simple 3D force-directed layout (mirrors main.js).
@@ -350,15 +409,33 @@ class StandaloneGraph {
 
     // Build the cluster (community) list with colour swatch + node count.
     _renderClusters() {
+        console.group('[Graphify] _renderClusters()');
+        console.log('[Graphify] _renderClusters: this.nodes.length =', this.nodes.length);
+
         const listEl = document.getElementById('clusterList');
-        if (!listEl) return;
+        console.log('[Graphify] _renderClusters: #clusterList found =', !!listEl);
+        if (!listEl) {
+            console.warn('[Graphify] _renderClusters: EARLY RETURN — #clusterList not in DOM!');
+            console.groupEnd();
+            return;
+        }
+
+        // Log #clusterList's parent chain to confirm it's still attached to document
+        let el = listEl;
+        const chain = [];
+        while (el) { chain.push(el.tagName || '#document'); el = el.parentElement; }
+        console.log('[Graphify] _renderClusters: #clusterList DOM chain =', chain.join(' > '));
+        console.log('[Graphify] _renderClusters: #clusterList isConnected =', listEl.isConnected);
 
         const counts = new Map();
         this.nodes.forEach((n) => {
-            const c = n.data.community ?? 0;
+            // Defensive: Node class may expose community via .data.community,
+            // .community directly, or not at all — fall back to 0.
+            const c = (n.data?.community ?? n.community ?? 0);
             counts.set(c, (counts.get(c) || 0) + 1);
         });
         const communities = [...counts.keys()].sort((a, b) => a - b);
+        console.log('[Graphify] _renderClusters: communities found =', communities, '| counts =', Object.fromEntries(counts));
 
         listEl.innerHTML = '';
 
@@ -379,10 +456,14 @@ class StandaloneGraph {
             '<span class="cluster-swatch all"></span>');
 
         communities.forEach((c) => {
-            const hex = '#' + (communityColor(c) >>> 0).toString(16).padStart(6, '0');
+            const hex = '#' + (communityColor(c) & 0xFFFFFF).toString(16).padStart(6, '0');
             makeItem(c, `Community ${c}`, counts.get(c),
                 `<span class="cluster-swatch" style="background:${hex}"></span>`);
         });
+
+        console.log('[Graphify] _renderClusters: done — appended', listEl.children.length, 'items to #clusterList');
+        console.log('[Graphify] _renderClusters: final innerHTML =', listEl.innerHTML.slice(0, 400));
+        console.groupEnd();
     }
 
     // Toggle isolation of a community (click again or "All" to clear).
@@ -398,7 +479,7 @@ class StandaloneGraph {
             this.sceneManager.centerView();
         } else {
             const members = this.nodes.filter(
-                (n) => (n.data.community ?? 0) === this._selectedCommunity);
+                (n) => (n.data?.community ?? n.community ?? 0) === this._selectedCommunity);
             this._focusNodes(members);
         }
     }
@@ -460,7 +541,7 @@ class StandaloneGraph {
                 return;
             }
 
-            const ghost = clustering && (d.community ?? 0) !== sel;
+            const ghost = clustering && (d?.community ?? n.community ?? 0) !== sel;
             const scale = ghost ? 0.4 : 1.0;
 
             n.mesh.visible = true;
@@ -499,25 +580,53 @@ class StandaloneGraph {
         const setError = (msg) => { if (errorEl) errorEl.textContent = msg || ''; };
 
         const readFile = (file) => {
-            if (!file) return;
+            console.log('[Graphify] readFile: called with file =', file?.name, '| size =', file?.size);
+            if (!file) {
+                console.warn('[Graphify] readFile: no file provided, skipping');
+                return;
+            }
             const reader = new FileReader();
             reader.onload = (e) => {
                 try {
                     const data = JSON.parse(e.target.result);
+                    console.log('[Graphify] readFile: JSON parsed OK, calling loadData');
                     this.loadData(data);
                     setError('');
                 } catch (err) {
+                    console.error('[Graphify] readFile: parse/load error —', err);
                     setError(`Could not load: ${err.message}`);
                 }
             };
-            reader.onerror = () => setError('Could not read the file.');
+            reader.onerror = () => {
+                console.error('[Graphify] readFile: FileReader error');
+                setError('Could not read the file.');
+            };
             reader.readAsText(file);
         };
 
-        document.getElementById('fileInput')?.addEventListener('change', (e) => {
-            readFile(e.target.files[0]);
-            e.target.value = '';
-        });
+        const fileInput = document.getElementById('fileInput');
+        if (fileInput) {
+            // Listen on both 'change' and 'input' — some browsers fire one or the other.
+            // Also attach at the document level (capture phase) to catch it even if
+            // something in the label/toolbar is stopping propagation.
+            const onFileSelected = (e) => {
+                if (e.target !== fileInput) return;   // only care about our input
+                console.log('[Graphify] file event fired — type:', e.type,
+                    '| files.length:', e.target.files?.length,
+                    '| files[0]:', e.target.files?.[0]?.name ?? 'undefined');
+                const file = e.target.files?.[0];
+                if (!file) return;
+                readFile(file);
+                setTimeout(() => { fileInput.value = ''; }, 0);
+            };
+
+            // Attach in capture phase at document level so label/toolbar can't swallow it
+            document.addEventListener('change', onFileSelected, true);
+            document.addEventListener('input',  onFileSelected, true);
+            console.log('[Graphify] fileInput: capture-phase listeners attached on document for', fileInput);
+        } else {
+            console.error('[Graphify] fileInput: #fileInput element NOT FOUND in DOM');
+        }
 
         // Drag & drop anywhere on the canvas.
         const container = this.sceneManager.container;
