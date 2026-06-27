@@ -68,6 +68,7 @@ class StandaloneGraph {
         this._started = false;
         this._search = '';
         this._selectedCommunity = null;
+        this._linkLengthScale = 1.5;
         this._wireUI();
         this._wireExplore();
         this._wireFileLoading();
@@ -173,7 +174,11 @@ class StandaloneGraph {
                 const delta = new THREE.Vector3()
                     .subVectors(link.sourceNode.position, link.targetNode.position);
                 const dist = delta.length() || 0.01;
-                const attract = (dist * dist) / k;
+                // Spring pulling each link toward its desired rest length
+                // (per-link JSON `length` or 1.5x largest connected diameter,
+                // scaled by the Link Length slider).
+                const rest = this._desiredLinkLength(link);
+                const attract = (dist - rest) * 0.35;
                 delta.normalize().multiplyScalar(attract);
                 link.sourceNode._disp.sub(delta);
                 link.targetNode._disp.add(delta);
@@ -193,7 +198,49 @@ class StandaloneGraph {
         this.nodes.forEach((n) => center.add(n.position));
         center.multiplyScalar(1 / Math.max(this.nodes.length, 1));
         this.nodes.forEach((n) => n.setPosition(n.position.clone().sub(center)));
+
+        // Normalize the overall scale so connected nodes settle at their desired
+        // link length (~1.5x node diameter by default). All-pairs repulsion
+        // tends to inflate spacing, so we rescale every position uniformly to
+        // bring the mean actual length onto the mean desired length.
+        this._normalizeScale();
+
         this.links.forEach((l) => l.update());
+    }
+
+    // Uniformly rescale all node positions so the average link length matches
+    // the average desired rest length. Preserves the layout's shape while
+    // pulling nodes to ~1.5-3x their diameter apart.
+    _normalizeScale() {
+        if (!this.links.length) return;
+        let actual = 0;
+        let desired = 0;
+        this.links.forEach((l) => {
+            actual += l.sourceNode.position.distanceTo(l.targetNode.position);
+            desired += this._desiredLinkLength(l);
+        });
+        if (actual <= 1e-3) return;
+        const s = desired / actual;
+        this.nodes.forEach((n) => n.setPosition(n.position.clone().multiplyScalar(s)));
+    }
+
+    // Desired rest length for a link: an explicit JSON `length` if provided,
+    // otherwise 1.5x the largest connected node's diameter. Scaled live by the
+    // Link Length slider.
+    _desiredLinkLength(link) {
+        const rA = link.sourceNode.radius;
+        const rB = link.targetNode.radius;
+        const largestDiameter = 2 * Math.max(rA, rB);
+        const base = (link.data && link.data.length != null)
+            ? link.data.length
+            : 1.5 * largestDiameter;
+        return base * this._linkLengthScale;
+    }
+
+    // Re-run the layout with a new link-length multiplier.
+    setLinkLength(scale) {
+        this._linkLengthScale = scale;
+        this._layout();
     }
 
     _wireUI() {
@@ -237,6 +284,13 @@ class StandaloneGraph {
             sm.setLinkThickness(mult);
             const out = document.getElementById('linkThicknessValue');
             if (out) out.textContent = `${mult.toFixed(1)}x`;
+        });
+
+        document.getElementById('linkLengthRange')?.addEventListener('input', (e) => {
+            const v = parseFloat(e.target.value);
+            this.setLinkLength(v);
+            const out = document.getElementById('linkLengthValue');
+            if (out) out.textContent = `${v.toFixed(1)}x`;
         });
 
         document.getElementById('linkFilletRange')?.addEventListener('input', (e) => {
@@ -380,8 +434,11 @@ class StandaloneGraph {
         const sel = this._selectedCommunity;
         const labelsOn = document.getElementById('showLabels')?.checked ?? true;
         const neon = this.sceneManager.currentStyle === 'neon';
+        const clustering = sel !== null;
 
-        const visibleById = new Map();
+        // Per-node state: 'member' (full size), 'ghost' (shrunk + de-emphasised
+        // when another cluster is selected), or 'hidden' (filtered out by search).
+        const stateById = new Map();
         let shown = 0;
 
         this.nodes.forEach((n) => {
@@ -389,26 +446,43 @@ class StandaloneGraph {
             const matchesText = !term
                 || (d.label || '').toLowerCase().includes(term)
                 || (d.id || '').toLowerCase().includes(term);
-            const matchesCluster = sel === null || (d.community ?? 0) === sel;
-            const visible = matchesText && matchesCluster;
 
-            visibleById.set(d.id, visible);
-            if (visible) shown++;
+            if (!matchesText) {
+                n.mesh.visible = false;
+                n.core.visible = false;
+                n.label.visible = false;
+                stateById.set(d.id, 'hidden');
+                return;
+            }
 
-            n.mesh.visible = visible;
-            n.core.visible = visible && !neon;
-            n.label.visible = visible && labelsOn;
+            const ghost = clustering && (d.community ?? 0) !== sel;
+            const scale = ghost ? 0.4 : 1.0;
+
+            n.mesh.visible = true;
+            n.core.visible = !neon;
+            n.label.visible = labelsOn && !ghost;
+            n.mesh.scale.setScalar(scale);
+            n.core.scale.setScalar(scale);
+
+            stateById.set(d.id, ghost ? 'ghost' : 'member');
+            shown++;
         });
 
         this.links.forEach((l) => {
-            const v = visibleById.get(l.sourceNode.data.id)
-                && visibleById.get(l.targetNode.data.id);
-            l.group.visible = !!v;
+            const a = stateById.get(l.sourceNode.data.id);
+            const b = stateById.get(l.targetNode.data.id);
+            const present = a && a !== 'hidden' && b && b !== 'hidden';
+            // When a cluster is selected, keep only its internal links visible so
+            // the highlighted community's structure stands out.
+            const visible = clustering
+                ? present && a === 'member' && b === 'member'
+                : present;
+            l.group.visible = !!visible;
         });
 
         const meta = document.getElementById('searchMeta');
         if (meta) {
-            meta.textContent = (term || sel !== null)
+            meta.textContent = (term || clustering)
                 ? `${shown} of ${this.nodes.length} nodes shown`
                 : '';
         }

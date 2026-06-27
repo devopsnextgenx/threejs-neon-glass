@@ -767,6 +767,7 @@ class Graph {
         this.dataUrl = dataUrl;
         this.nodes = [];
         this.links = [];
+        this._linkLengthScale = 1.5;
         this._wireUI();
     }
 
@@ -829,7 +830,11 @@ class Graph {
                 const delta = new THREE.Vector3()
                     .subVectors(link.sourceNode.position, link.targetNode.position);
                 const dist = delta.length() || 0.01;
-                const attract = (dist * dist) / k;
+                // Spring pulling each link toward its desired rest length
+                // (per-link JSON `length` or 1.5x largest connected diameter,
+                // scaled by the Link Length slider).
+                const rest = this._desiredLinkLength(link);
+                const attract = (dist - rest) * 0.35;
                 delta.normalize().multiplyScalar(attract);
                 link.sourceNode._disp.sub(delta);
                 link.targetNode._disp.add(delta);
@@ -850,7 +855,50 @@ class Graph {
         this.nodes.forEach((n) => center.add(n.position));
         center.multiplyScalar(1 / Math.max(this.nodes.length, 1));
         this.nodes.forEach((n) => n.setPosition(n.position.clone().sub(center)));
+
+        // Normalize the overall scale so connected nodes settle at their desired
+        // link length (~1.5x node diameter by default). All-pairs repulsion
+        // tends to inflate spacing, so we rescale every position uniformly to
+        // bring the mean actual length onto the mean desired length.
+        this._normalizeScale();
+
         this.links.forEach((l) => l.update());
+    }
+
+    // Uniformly rescale all node positions so the average link length matches
+    // the average desired rest length. Preserves the layout's shape while
+    // pulling nodes to ~1.5-3x their diameter apart.
+    _normalizeScale() {
+        if (!this.links.length) return;
+        let actual = 0;
+        let desired = 0;
+        this.links.forEach((l) => {
+            actual += l.sourceNode.position.distanceTo(l.targetNode.position);
+            desired += this._desiredLinkLength(l);
+        });
+        if (actual <= 1e-3) return;
+        const s = desired / actual;
+        this.nodes.forEach((n) => n.setPosition(n.position.clone().multiplyScalar(s)));
+    }
+
+    // Desired rest length for a link: an explicit JSON `length` if provided,
+    // otherwise 1.5x the largest connected node's diameter. Scaled live by the
+    // Link Length slider.
+    _desiredLinkLength(link) {
+        const rA = link.sourceNode.radius;
+        const rB = link.targetNode.radius;
+        const largestDiameter = 2 * Math.max(rA, rB);
+        const base = (link.data && link.data.length != null)
+            ? link.data.length
+            : 1.5 * largestDiameter;
+        return base * this._linkLengthScale;
+    }
+
+    // Re-run the layout with a new link-length multiplier so nodes spread
+    // apart (or pull together) and reposition accordingly.
+    setLinkLength(scale) {
+        this._linkLengthScale = scale;
+        this._layout();
     }
 
     _wireUI() {
@@ -891,6 +939,13 @@ class Graph {
             sm.setLinkThickness(mult);
             const out = document.getElementById('linkThicknessValue');
             if (out) out.textContent = `${mult.toFixed(1)}x`;
+        });
+
+        document.getElementById('linkLengthRange')?.addEventListener('input', (e) => {
+            const v = parseFloat(e.target.value);
+            this.setLinkLength(v);
+            const out = document.getElementById('linkLengthValue');
+            if (out) out.textContent = `${v.toFixed(1)}x`;
         });
 
         document.getElementById('linkFilletRange')?.addEventListener('input', (e) => {
